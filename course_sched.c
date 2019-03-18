@@ -126,6 +126,52 @@ int main(int argc, char** argv)
   }
   free(preReqInfo);
 
+  FILE *in = fopen(argv[1], "r");
+
+  while(1) {
+    char *p = (char *)malloc(sizeof(char) * 256); // buffer size 1 << 8
+    fgets(p, 256, in);
+    if(feof(in)) {
+      free(p);
+      break;
+    }
+
+    int len = 0;
+    int info = 0;
+    int cur = 0;
+    char *tmp = (char *)malloc(sizeof(char) * 256);
+    enum inputs{classInput, diffcInput};
+
+    float *chng;
+
+    for(char *k = p; *k != '\0'; k++) {
+      if(isToken(*k) || (*k == ' ' && k != p && (isToken(*(k - 1)) || *(k - 1) == ' '))) {
+        tmp[len] = '\0';
+        if(len > 0) {
+          if(info == classInput) {
+            for(int i = 0; i < li.size; i++) {
+              if(strcmp(ra(&li, i)->name, tmp) == 0) {
+                chng = &(ra(&li, i)->difficulty);
+                break;
+              }
+            }
+            info++;
+          }
+          else {
+            *chng = (float)atof(tmp);
+          }
+        }
+        len = 0;
+        continue;
+      }
+      tmp[len++] = *k;
+    }
+    free(tmp);
+    free(p);
+  }
+
+  fclose(in);
+
   clear(&li);
 
   return 0;
