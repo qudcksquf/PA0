@@ -4,9 +4,11 @@
 
 #define MAX_LENGTH 4096
 typedef struct CourseEntry {
+  int pre_order; // 위상정렬을 위한 pre order
+  int post_order; // 위상정렬을 위한 post order
   char name[MAX_LENGTH]; // 과목의 이름
-  struct CourseEntry** prerequisites; // 선수 과목들
-  int n_prerequisites; // 선수 과목의 수
+  struct CourseEntry** postrequisites; // 선수 과목들
+  int n_postrequisites; // 이 과목을 들어야 다음 들을 수 있는 과목
   float difficulty; // 과목의 난이도
 }ce;
 
@@ -49,13 +51,20 @@ void push(al* x, ce t) { // 오직 삽입만 있음 삭제 따윈 없다.
 }
 
 void clear(al* x) {
-  for(int i = 0; i < x->size; i++) free(x->arr[i].prerequisites);
+  for(int i = 0; i < x->size; i++) free(x->arr[i].postrequisites);
   x->size = 0;
   x->capacity = 0;
   free(x->arr);
 }
 
 // end
+
+void dfs(ce *u, int *cnt) {
+  if(u->pre_order) return;
+  u->pre_order = ++(*cnt);
+  for(int i = 0; i < u->n_postrequisites; i++) dfs(u->postrequisites[i], cnt);
+  u->post_order = ++(*cnt);
+}
 
 int main(int argc, char** argv)
 {
@@ -64,6 +73,7 @@ int main(int argc, char** argv)
   al li;
   create(&li);
 
+  int *cntReq = (int *)malloc(sizeof(int) * 256);
   char ***preReqInfo = (char ***)malloc(sizeof(char **) * 256);
 
   while(1) {
@@ -84,6 +94,7 @@ int main(int argc, char** argv)
         if(len > 0) {
           if(info == classInput) {
             ce makeNode;
+            makeNode.n_postrequisites = 0;
             makeNode.difficulty = 5.0;
             strcpy(makeNode.name, tmp);
 
@@ -92,9 +103,8 @@ int main(int argc, char** argv)
             info++;
           }
           else if(info == sizeInput) {
-            ra(&li, li.size - 1)->n_prerequisites = atoi(tmp);
-            ra(&li, li.size - 1)->prerequisites = (ce **)malloc(sizeof(ce *) * (ra(&li, li.size - 1)->n_prerequisites + 1));
-            preReqInfo[li.size - 1] = (char **)malloc(sizeof(char *) * (ra(&li, li.size - 1)->n_prerequisites + 1));
+            cntReq[li.size - 1] = atoi(tmp);
+            preReqInfo[li.size - 1] = (char **)malloc(sizeof(char *) * (cntReq[li.size - 1] + 1));
 
             info++;
           }
@@ -114,17 +124,6 @@ int main(int argc, char** argv)
   }
 
   fclose(data);
-
-  for(int i = 0; i < li.size; i++) {
-    for(int j = 0; j < ra(&li, i)->n_prerequisites; j++) {
-      for(int k = 0; k < li.size; k++)
-        if(strcmp(ra(&li, k)->name, preReqInfo[i][j]) == 0)
-          ra(&li, i)->prerequisites[j] = ra(&li, k);
-      free(preReqInfo[i][j]);
-    }
-    free(preReqInfo[i]);
-  }
-  free(preReqInfo);
 
   FILE *in = fopen(argv[1], "r");
 
@@ -149,7 +148,7 @@ int main(int argc, char** argv)
         tmp[len] = '\0';
         if(len > 0) {
           if(info == classInput) {
-            for(int i = 0; i < li.size; i++) {
+            for(int i = 0; i < li.size; i++) { // sequential search O(N)
               if(strcmp(ra(&li, i)->name, tmp) == 0) {
                 chng = &(ra(&li, i)->difficulty);
                 break;
@@ -171,6 +170,100 @@ int main(int argc, char** argv)
   }
 
   fclose(in);
+
+  for(int i = 0; i < li.size; i++) {
+    for(int j = i + 1; j < li.size; j++) {
+      ce *x = ra(&li, i);
+      ce *y = ra(&li, j);
+      if(x->difficulty > y->difficulty){
+        ce tmp = *x;
+        *x = *y;
+        *y = tmp;
+
+        char **ctmp = preReqInfo[i];
+        preReqInfo[i] = preReqInfo[j];
+        preReqInfo[j] = ctmp;
+
+        int crtmp = cntReq[i];
+        cntReq[i] = cntReq[j];
+        cntReq[j] = crtmp;
+      }
+      else if(x->difficulty == y->difficulty && strcmp(x->name, y->name) < 0) {
+        ce tmp = *x;
+        *x = *y;
+        *y = tmp;
+
+        char **ctmp = preReqInfo[i];
+        preReqInfo[i] = preReqInfo[j];
+        preReqInfo[j] = ctmp;
+
+        int crtmp = cntReq[i];
+        cntReq[i] = cntReq[j];
+        cntReq[j] = crtmp;
+      }
+    }
+  }
+
+  for(int i = 0; i < li.size; i++) {
+    for(int j = 0; j < cntReq[i]; j++) {
+      for(int k = 0; k < li.size; k++)
+        if(strcmp(ra(&li, k)->name, preReqInfo[i][j]) == 0) // sequential search O(N)
+          ra(&li, k)->n_postrequisites++;
+    }
+  }
+
+  for(int i = 0; i < li.size; i++) ra(&li, i)->postrequisites = (ce **)malloc(sizeof(ce *) * (ra(&li, i)->n_postrequisites));
+  for(int i = 0; i < li.size; i++) {
+    int cur = 0;
+    for(int j = 0; j < cntReq[i]; j++) {
+      for(int k = 0; k < li.size; k++)
+        if(strcmp(ra(&li, k)->name, preReqInfo[i][j]) == 0) // sequential search O(N)
+          ra(&li, k)->postrequisites[cur] = ra(&li, i);
+      free(preReqInfo[i][j]);
+    }
+    free(preReqInfo[i]);
+  }
+  free(preReqInfo);
+  free(cntReq);
+
+  for(int k = 0; k < li.size; k++) { // O(V^2) Selection Sort
+    ce *cur = ra(&li, k);
+    for(int i = 0; i < cur->n_postrequisites; i++) {
+      for(int j = i + 1; j < cur->n_postrequisites; j++) {
+        ce *x = cur->postrequisites[i];
+        ce *y = cur->postrequisites[j];
+        if(x->difficulty > y->difficulty){
+          ce tmp = *x;
+          *x = *y;
+          *y = tmp;
+        }
+        else if(x->difficulty == y->difficulty && strcmp(x->name, y->name) < 0) {
+          ce tmp = *x;
+          *x = *y;
+          *y = tmp;
+        }
+      }
+    }
+  }
+
+  int cnt = 0;
+  for(int i = 0; i < li.size; i++) dfs(ra(&li, i), &cnt); // O(V + E) Time Complexity
+
+  for(int i = 0; i < li.size; i++) { // O(V^2) Selection Sort
+    for(int j = i + 1; j < li.size; j++) {
+        ce *x = ra(&li, i);
+        ce *y = ra(&li, j);
+        if(x->post_order < y->post_order){
+          ce tmp = *x;
+          *x = *y;
+          *y = tmp;
+        }
+    }
+  }
+
+  for(int i = 0; i < li.size; i++) {
+    printf("%s\n", ra(&li, i)->name);
+  }
 
   clear(&li);
 
