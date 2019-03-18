@@ -10,8 +10,8 @@ typedef struct CourseEntry {
   float difficulty; // 과목의 난이도
 }ce;
 
-inline int isToken(char c) {
-  return c == ',' || c == ' ' || c == '\n';
+int isToken(char c) {
+  return (c == ',' || c == '\n');
 }
 
 // arrayList
@@ -22,37 +22,37 @@ typedef struct ArrayList {
   ce *arr;
 }al;
 
-void create(al x) {
-  x.size = 0;
-  x.capacity = 1;
-  x.arr = (ce *)malloc(sizeof(ce));
+void create(al *x) {
+  x->size = 0;
+  x->capacity = 1;
+  x->arr = (ce *)malloc(sizeof(ce));
 }
 
-ce* ra(al x, int num) { // 배열 직접 접근
-  if(x.size <= num) return NULL;
-  return x.arr + num;
+ce* ra(al* x, int num) { // 배열 직접 접근
+  if(x->size <= num) return NULL;
+  else return x->arr + num;
 }
 
-void push(al x, ce t) { // 오직 삽입만 있음 삭제 따윈 없다.
-  if(x.size + 1 > x.capacity) {
-    ce *tmp = (ce *)malloc(sizeof(ce) * x.capacity);
-    for(int i = 0; i < x.size; i++) tmp[i] = x.arr[i];
-    free(x.arr);
+void push(al* x, ce t) { // 오직 삽입만 있음 삭제 따윈 없다.
+  if(x->size + 1 > x->capacity) {
+    ce *tmp = (ce *)malloc(sizeof(ce) * x->capacity);
+    for(int i = 0; i < x->size; i++) tmp[i] = x->arr[i];
+    free(x->arr);
 
-    x.capacity <<= 1;
-    x.arr = (ce *)malloc(sizeof(ce) * x.capacity);
-    for(int i = 0; i < x.size; i++) x.arr[i] = tmp[i];
+    x->capacity <<= 1;
+    x->arr = (ce *)malloc(sizeof(ce) * x->capacity);
+    for(int i = 0; i < x->size; i++) x->arr[i] = tmp[i];
     free(tmp);
   }
 
-  x.arr[x.size++] = t;
+  x->arr[x->size++] = t;
 }
 
-void clear(al x) {
-  for(int i = 0; i < x.size; i++) free(x.arr[i].prerequisites);
-  x.size = 0;
-  x.capacity = 0;
-  free(x.arr);
+void clear(al* x) {
+  for(int i = 0; i < x->size; i++) free(x->arr[i].prerequisites);
+  x->size = 0;
+  x->capacity = 0;
+  free(x->arr);
 }
 
 // end
@@ -62,7 +62,7 @@ int main(int argc, char** argv)
   FILE *data = fopen("./in/database.csv", "r");
 
   al li;
-  create(li);
+  create(&li);
 
   char ***preReqInfo = (char ***)malloc(sizeof(char **) * 256);
 
@@ -79,7 +79,7 @@ int main(int argc, char** argv)
     char *tmp = (char *)malloc(sizeof(char) * 256);
     enum inputs{classInput, sizeInput, preReq};
     for(char *k = p; *k != '\0'; k++) {
-      if(isToken(*k)) {
+      if(isToken(*k) || (*k == ' ' && k != p && (isToken(*(k - 1)) || *(k - 1) == ' '))) {
         tmp[len] = '\0';
         if(len > 0) {
           if(info == classInput) {
@@ -87,14 +87,14 @@ int main(int argc, char** argv)
             makeNode.difficulty = 5.0;
             strcpy(makeNode.name, tmp);
 
-            push(li, makeNode);
+            push(&li, makeNode);
 
             info++;
           }
           else if(info == sizeInput) {
-            ra(li, li.size - 1)->n_prerequisites = atoi(tmp);
-            ra(li, li.size - 1)->prerequisites = (ce **)malloc(sizeof(ce *) * (ra(li, li.size - 1)->n_prerequisites + 1));
-            preReqInfo[li.size - 1] = (char **)malloc(sizeof(char *) * (ra(li, li.size - 1)->n_prerequisites + 1));
+            ra(&li, li.size - 1)->n_prerequisites = atoi(tmp);
+            ra(&li, li.size - 1)->prerequisites = (ce **)malloc(sizeof(ce *) * (ra(&li, li.size - 1)->n_prerequisites + 1));
+            preReqInfo[li.size - 1] = (char **)malloc(sizeof(char *) * (ra(&li, li.size - 1)->n_prerequisites + 1));
 
             info++;
           }
@@ -113,22 +113,20 @@ int main(int argc, char** argv)
     free(p);
   }
 
+  fclose(data);
+
   for(int i = 0; i < li.size; i++) {
-    for(int j = 0; j < ra(li, i)->n_prerequisites; j++) {
+    for(int j = 0; j < ra(&li, i)->n_prerequisites; j++) {
       for(int k = 0; k < li.size; k++)
-        if(strcmp(ra(li, k)->name, preReqInfo[i][j]) == 0)
-          ra(li, i)->prerequisites[j] = ra(li, k);
+        if(strcmp(ra(&li, k)->name, preReqInfo[i][j]) == 0)
+          ra(&li, i)->prerequisites[j] = ra(&li, k);
       free(preReqInfo[i][j]);
     }
     free(preReqInfo[i]);
   }
   free(preReqInfo);
 
-  for (int it = 0; it < argc; ++it) {
-	  printf("\n\t%s", argv[it]);
-  }
-
-  clear(li);
+  clear(&li);
 
   return 0;
 }
